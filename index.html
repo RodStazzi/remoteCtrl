@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Samsung Remote</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0f1e;
+    --panel: #111827;
+    --card: #1a2235;
+    --card2: #1e2a3a;
+    --border: #2a3a50;
+    --accent: #1a6cf6;
+    --accent2: #0d47d1;
+    --text: #e8edf5;
+    --text-muted: #6b7fa0;
+    --btn: #16213a;
+    --btn-hover: #1e2f4a;
+    --btn-active: #0d47d1;
+    --shadow: 0 4px 24px rgba(0,0,0,0.5);
+    --glow: 0 0 18px rgba(26,108,246,0.35);
+    --red: #e53935;
+    --green: #43a047;
+    --yellow: #fdd835;
+    --blue: #1e88e5;
+    --netflix: #e50914;
+    --prime: #00a8e0;
+    --youtube: #ff0000;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    background-image: radial-gradient(ellipse at 20% 0%, #0d2a5a22 0%, transparent 60%),
+                      radial-gradient(ellipse at 80% 100%, #1a3a6a18 0%, transparent 60%);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 12px 40px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+  }
+
+  h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem;
+    letter-spacing: 3px;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    text-align: center;
+  }
+
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #e53935;
+    transition: background 0.3s;
+  }
+  .status-dot.connected { background: #43a047; box-shadow: 0 0 8px #43a04777; }
+
+  .ip-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    width: 100%;
+    max-width: 380px;
+  }
+  .ip-bar input {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 9px 14px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .ip-bar input:focus { border-color: var(--accent); }
+  .ip-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    padding: 9px 14px;
+    color: white;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+  .ip-btn:hover { background: var(--accent2); }
+  .ip-btn:active { transform: scale(0.96); }
+
+  /* ── Discovery Panel ── */
+  .discovery-panel {
+    width: 100%;
+    max-width: 380px;
+    margin-bottom: 14px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+  }
+  .discovery-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+  }
+  .discovery-header:hover { background: var(--card); }
+  .discovery-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .disc-arrow {
+    color: var(--text-muted);
+    font-size: 0.7rem;
+    transition: transform 0.25s;
+  }
+  .disc-arrow.open { transform: rotate(180deg); }
+  .discovery-body {
+    display: none;
+    padding: 0 14px 14px;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .discovery-body.open { display: flex; }
+
+  .tabs {
+    display: flex;
+    background: var(--card2);
+    border-radius: 10px;
+    padding: 3px;
+    gap: 2px;
+  }
+  .tab {
+    flex: 1;
+    padding: 8px 6px;
+    border-radius: 8px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+  }
+  .tab.active { background: var(--btn-hover); color: var(--text); }
+
+  .tab-content { display: none; flex-direction: column; gap: 10px; }
+  .tab-content.active { display: flex; }
+
+  .scan-info {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+  .scan-info code {
+    background: var(--card2);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+  }
+  .action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .action-btn:hover { background: var(--btn-hover); border-color: var(--accent); }
+  .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .progress-wrap { display: none; flex-direction: column; gap: 6px; }
+  .progress-wrap.visible { display: flex; }
+  .progress-bg { background: var(--card2); border-radius: 6px; height: 6px; overflow: hidden; }
+  .progress-fill { background: var(--accent); height: 100%; width: 0%; border-radius: 6px; transition: width 0.2s; }
+  .progress-label { font-size: 0.72rem; color: var(--text-muted); text-align: center; }
+
+  .results-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 210px;
+    overflow-y: auto;
+  }
+  .result-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+  }
+  .result-item .ip-found { font-weight: 600; color: var(--accent); }
+  .result-item .lbl-ok { font-size: 0.7rem; color: var(--green); }
+  .use-btn {
+    background: var(--accent);
+    border: none;
+    border-radius: 7px;
+    padding: 5px 12px;
+    color: white;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .use-btn:hover { background: var(--accent2); }
+
+  .mac-textarea {
+    width: 100%;
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: 'Courier New', monospace;
+    font-size: 0.74rem;
+    outline: none;
+    resize: vertical;
+    min-height: 88px;
+    line-height: 1.55;
+  }
+  .mac-textarea:focus { border-color: var(--accent); }
+  .mac-textarea::placeholder { color: var(--text-muted); font-family: 'DM Sans', sans-serif; font-size: 0.75rem; }
+
+  .mac-row {
+    background: var(--card2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 0.78rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .mac-row .mr-ip   { color: var(--text-muted); font-size: 0.7rem; }
+  .mac-row .mr-mac  { font-family: 'Courier New', monospace; font-size: 0.73rem; color: var(--accent); }
+  .mac-row .mr-vendor { font-weight: 600; }
+  .mac-row .mr-vendor.loading { color: var(--text-muted); font-style: italic; }
+  .mac-row .mr-vendor.samsung { color: var(--green); }
+  .mac-row .mr-vendor.error   { color: var(--red); font-size: 0.7rem; }
+  .use-ip-btn {
+    align-self: flex-end;
+    background: var(--btn);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 4px 10px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.7rem;
+    cursor: pointer;
+    margin-top: 2px;
+  }
+  .use-ip-btn:hover { background: var(--btn-hover); border-color: var(--accent); color: var(--accent); }
+
+  /* ── Remote ── */
+  .remote {
+    background: var(--panel);
+    border-radius: 28px;
+    padding: 22px 18px;
+    width: 100%;
+    max-width: 380px;
+    box-shadow: var(--shadow), 0 0 0 1px var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .row { display: flex; gap: 10px; align-items: stretch; }
+
+  .btn {
+    background: var(--btn);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    color: var(--text);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 500;
+    padding: 13px 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: background 0.15s, transform 0.1s, box-shadow 0.15s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    flex: 1;
+  }
+  .btn:hover  { background: var(--btn-hover); border-color: #3a5070; }
+  .btn:active { background: var(--btn-active); transform: scale(0.94); box-shadow: var(--glow); }
+  .btn svg { flex-shrink: 0; }
+
+  .btn-power   { background:#1f1010; border-color:#3a1515; color:var(--red); }
+  .btn-power:hover   { background:#2a1515; border-color:var(--red); }
+  .btn-power:active  { background:var(--red); color:white; }
+  .btn-label   { font-size:0.8rem; letter-spacing:0.5px; }
+  .btn-reconnect { font-size:0.78rem; flex:2; }
+  .btn-icon    { flex:0 0 52px; }
+
+  .dpad-section { background:var(--card2); border-radius:20px; padding:14px; border:1px solid var(--border); }
+  .dpad-outer   { display:flex; align-items:center; gap:10px; }
+  .dpad-side    { display:flex; flex-direction:column; gap:8px; align-items:center; }
+  .side-label   { font-size:0.68rem; color:var(--text-muted); font-weight:500; letter-spacing:1px; }
+
+  .dpad-circle {
+    display: grid;
+    grid-template-columns: 48px 1fr 48px;
+    grid-template-rows: 48px 1fr 48px;
+    background: #0f1a2e;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    overflow: hidden;
+    position: relative;
+    width: 160px; height: 160px;
+  }
+  .dpad-btn {
+    background: transparent; border: none;
+    color: var(--text-muted); cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+    transition: background 0.15s, color 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dpad-btn:hover  { background: rgba(26,108,246,0.15); color: var(--text); }
+  .dpad-btn:active { background: rgba(26,108,246,0.3); color: white; }
+
+  .dpad-ok {
+    background: #0f1a2e; border-radius: 50%;
+    width: 72px; height: 72px;
+    position: absolute; top:50%; left:50%;
+    transform: translate(-50%,-50%);
+    display: flex; align-items: center; justify-content: center; flex-direction: column;
+    cursor: pointer; border: 1px solid var(--border);
+    font-size: 0.72rem; font-weight: 600; letter-spacing: 0.5px;
+    transition: background 0.15s, box-shadow 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dpad-ok:hover  { background: var(--btn-hover); }
+  .dpad-ok:active { background: var(--accent); box-shadow: var(--glow); }
+
+  .btn-side { width:48px; height:48px; min-width:48px; flex:none; border-radius:12px; }
+
+  .color-dot {
+    width:14px; height:14px; border-radius:50%;
+    cursor:pointer; border:none;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .color-dot:hover  { transform:scale(1.25); }
+  .color-dot:active { transform:scale(0.9); }
+  .dot-r { background:var(--red); }   .dot-r:hover { box-shadow:0 0 10px var(--red); }
+  .dot-g { background:var(--green); } .dot-g:hover { box-shadow:0 0 10px var(--green); }
+  .dot-y { background:var(--yellow); }.dot-y:hover { box-shadow:0 0 10px var(--yellow); }
+  .dot-b { background:var(--blue); }  .dot-b:hover { box-shadow:0 0 10px var(--blue); }
+
+  .btn-netflix { background:#1a0505; border-color:#3a0a0a; color:var(--netflix); font-weight:700; font-size:0.9rem; letter-spacing:1px; }
+  .btn-netflix:hover  { background:#2a0808; border-color:var(--netflix); }
+  .btn-netflix:active { background:var(--netflix); color:white; }
+  .btn-prime { background:#050d1a; border-color:#0a1f35; color:var(--prime); font-size:0.72rem; font-weight:600; }
+  .btn-prime:hover  { background:#091525; border-color:var(--prime); }
+  .btn-prime:active { background:#003f5c; color:white; }
+  .btn-youtube { background:#1a0505; border-color:#3a0a0a; color:var(--youtube); font-size:0.78rem; font-weight:600; }
+  .btn-youtube:hover  { background:#2a0808; border-color:var(--youtube); }
+  .btn-youtube:active { background:var(--youtube); color:white; }
+
+  .divider { height:1px; background:var(--border); border-radius:1px; }
+
+  .toast {
+    position: fixed; bottom:28px; left:50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--card); border:1px solid var(--border);
+    border-radius:12px; padding:10px 20px;
+    font-size:0.82rem; color:var(--text); box-shadow:var(--shadow);
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s;
+    opacity:0; pointer-events:none; white-space:nowrap; z-index:100;
+  }
+  .toast.show { transform:translateX(-50%) translateY(0); opacity:1; }
+
+  .modal-overlay {
+    display:none; position:fixed; inset:0;
+    background:rgba(0,0,0,0.7); z-index:200;
+    align-items:center; justify-content:center;
+  }
+  .modal-overlay.open { display:flex; }
+  .modal {
+    background:var(--panel); border:1px solid var(--border);
+    border-radius:20px; padding:24px;
+    width:90%; max-width:340px; box-shadow:var(--shadow);
+  }
+  .modal h3 { font-size:1rem; margin-bottom:14px; }
+  .modal input {
+    width:100%; background:var(--card); border:1px solid var(--border);
+    border-radius:10px; padding:10px 14px; color:var(--text);
+    font-family:'DM Sans',sans-serif; font-size:0.9rem; outline:none; margin-bottom:14px;
+  }
+  .modal input:focus { border-color:var(--accent); }
+  .modal-btns { display:flex; gap:10px; }
+  .modal-btns button { flex:1; padding:10px; border-radius:10px; border:1px solid var(--border); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.85rem; font-weight:600; }
+  .mbtn-send   { background:var(--accent); border-color:var(--accent)!important; color:white; }
+  .mbtn-cancel { background:var(--btn); color:var(--text); }
+
+  ::-webkit-scrollbar { width:4px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--border); border-radius:4px; }
+</style>
+</head>
+<body>
+
+<h1>SAMSUNG REMOTE</h1>
+
+<div class="status-bar">
+  <div class="status-dot" id="statusDot"></div>
+  <span id="statusText">Desconectado</span>
+</div>
+
+<div class="ip-bar">
+  <input type="text" id="tvIp" value="" placeholder="IP del TV">
+  <button class="ip-btn" onclick="connect()">Conectar</button>
+</div>
+
+<!-- ══════════ DISCOVERY PANEL ══════════ -->
+<div class="discovery-panel">
+  <div class="discovery-header" onclick="toggleDisc()">
+    <span class="discovery-title">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Descubrir dispositivos en la red
+    </span>
+    <span class="disc-arrow" id="discArrow">▼</span>
+  </div>
+
+  <div class="discovery-body" id="discBody">
+    <div class="tabs">
+      <button class="tab active" id="tab1" onclick="switchTab(1)">📡 Escanear IPs</button>
+      <button class="tab"        id="tab2" onclick="switchTab(2)">🏭 Fabricantes MAC</button>
+    </div>
+
+    <!-- TAB 1: Scan -->
+    <div class="tab-content active" id="tc1">
+      <div class="scan-info">
+        Detecta tu IP local vía <strong>WebRTC</strong> y escanea todo el rango <strong>/24</strong> buscando el puerto <strong>8001</strong> de Samsung. Equivale a ejecutar <code>arp -a</code> + <code>nmap -p 8001</code> desde el browser.
+      </div>
+      <button class="action-btn" id="scanBtn" onclick="startScan()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        Detectar IP local y escanear red
+      </button>
+      <div class="progress-wrap" id="scanProgress">
+        <div class="progress-bg"><div class="progress-fill" id="scanFill"></div></div>
+        <div class="progress-label" id="scanLabel">Iniciando...</div>
+      </div>
+      <div class="results-list" id="scanResults"></div>
+    </div>
+
+    <!-- TAB 2: MAC Vendors -->
+    <div class="tab-content" id="tc2">
+      <div class="scan-info">
+        Pega la salida completa de <code>arp -a</code>. Se extraen todas las MACs y se consulta <strong>macvendors.com</strong> para identificar el fabricante de cada dispositivo (1 req/seg, free tier).
+      </div>
+      <textarea class="mac-textarea" id="arpOut"
+        placeholder="Pega aquí la salida de arp -a&#10;&#10;  192.168.100.1     c8-3a-35-6a-b5-c4   dynamic&#10;  192.168.100.20    68-fc-ca-d3-9b-ce   dynamic&#10;  192.168.100.35    a4-c3-f0-12-ab-cd   dynamic"></textarea>
+      <button class="action-btn" id="macBtn" onclick="lookupMacs()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        Consultar fabricantes en macvendors.com
+      </button>
+      <div class="results-list" id="macResults"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ REMOTE CONTROL ══════════ -->
+<div class="remote">
+
+  <div class="row">
+    <button class="btn btn-power btn-icon" onclick="sendKey('KEY_POWER')" title="Encender / Apagar">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v10"/><path d="M5.6 5.6A9 9 0 1 0 18.4 5.6"/></svg>
+    </button>
+    <button class="btn btn-reconnect" onclick="reconnect()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/><path d="M3 21v-5h5"/></svg>
+      Actualizar conexión
+    </button>
+    <button class="btn btn-icon" onclick="sendKey('KEY_MENU')" title="Configuración">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+
+  <div class="row">
+    <button class="btn" onclick="sendKey('KEY_MUTE')" style="flex:1">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+      Mute
+    </button>
+    <button class="btn" style="flex:1;gap:5px;">
+      <span style="font-size:0.7rem;color:var(--text-muted)">1 2 3</span>
+      <span class="color-dot dot-r" onclick="sendKey('KEY_RED')"></span>
+      <span class="color-dot dot-g" onclick="sendKey('KEY_GREEN')"></span>
+      <span class="color-dot dot-y" onclick="sendKey('KEY_YELLOW')"></span>
+      <span class="color-dot dot-b" onclick="sendKey('KEY_BLUE')"></span>
+    </button>
+  </div>
+
+  <div class="row">
+    <button class="btn" onclick="sendKey('KEY_INFO')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    </button>
+    <button class="btn btn-label" onclick="sendKey('KEY_GUIDE')">GUÍA</button>
+    <button class="btn btn-label" onclick="sendKey('KEY_MENU')">MENÚ</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="dpad-section">
+    <div class="dpad-outer">
+
+      <div class="dpad-side">
+        <span class="side-label">VOL</span>
+        <button class="btn btn-side" onclick="sendKey('KEY_VOLUP')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        <button class="btn btn-side" onclick="sendKey('KEY_VOLDOWN')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+        <div style="position:relative;">
+          <div class="dpad-circle">
+            <div></div><button class="dpad-btn" onclick="sendKey('KEY_UP')">▲</button><div></div>
+            <button class="dpad-btn" onclick="sendKey('KEY_LEFT')">◀</button><div></div><button class="dpad-btn" onclick="sendKey('KEY_RIGHT')">▶</button>
+            <div></div><button class="dpad-btn" onclick="sendKey('KEY_DOWN')">▼</button><div></div>
+          </div>
+          <div class="dpad-ok" onclick="sendKey('KEY_ENTER')">
+            <span style="font-size:0.62rem;color:var(--text-muted);line-height:1.3;text-align:center;">DE<br>ACUERDO</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="dpad-side">
+        <span class="side-label">CH</span>
+        <button class="btn btn-side" onclick="sendKey('KEY_CHUP')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 3l-4 4-4-4"/></svg>
+        <button class="btn btn-side" onclick="sendKey('KEY_CHDOWN')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="row">
+    <button class="btn" onclick="sendKey('KEY_RETURN')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+    </button>
+    <button class="btn" onclick="sendKey('KEY_HOME')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    </button>
+    <button class="btn" onclick="sendKey('KEY_SOURCE')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+    </button>
+  </div>
+
+  <div class="row">
+    <button class="btn btn-prime" onclick="sendKey('KEY_PRIMEIDEO')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--prime)" stroke="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+      prime video
+    </button>
+    <button class="btn btn-netflix" onclick="sendKey('KEY_NETFLIX')">NETFLIX</button>
+    <button class="btn btn-youtube" onclick="sendKey('KEY_YOUTUBE')">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="var(--youtube)"><path d="M23 7s-.3-2-1.2-2.8c-1.1-1.2-2.4-1.2-3-1.3C16.3 2.8 12 2.8 12 2.8s-4.3 0-6.8.2c-.6.1-1.9.1-3 1.3C1.3 5 1 7 1 7S.8 9.2.8 11.5v2.2c0 2.2.2 4.5.2 4.5s.3 2 1.2 2.8c1.1 1.2 2.6 1.1 3.3 1.2C7.3 22.4 12 22.4 12 22.4s4.3 0 6.8-.3c.6-.1 1.9-.1 3-1.3.9-.8 1.2-2.8 1.2-2.8s.2-2.2.2-4.5v-2.2C23.2 9.2 23 7 23 7zM9.7 15.5V8.4l6.6 3.6-6.6 3.5z"/></svg>
+      YouTube
+    </button>
+  </div>
+
+  <div class="row">
+    <button class="btn" onclick="sendKey('KEY_APPS')">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+    </button>
+    <button class="btn" onclick="sendKey('KEY_SCREEN_MIRROR')">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M2 12.2V19a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6.8"/><path d="M2 8.6V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v3.6"/><path d="M6 19v-2"/><path d="M10 19v-5"/><path d="M14 19v-3"/><path d="M18 19v-7"/></svg>
+    </button>
+    <button class="btn" onclick="openKeyboard()">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></svg>
+    </button>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="kbModal">
+  <div class="modal">
+    <h3>⌨️ Enviar texto al TV</h3>
+    <input type="text" id="textInput" placeholder="Escribe aquí...">
+    <div class="modal-btns">
+      <button class="mbtn-cancel" onclick="closeKb()">Cancelar</button>
+      <button class="mbtn-send"   onclick="sendText()">Enviar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  CORE — WebSocket remote
+// ══════════════════════════════════════════
+let ws = null;
+const APP_NAME = btoa('SamsungWebRemote');
+const DEV_NAME = btoa('WebBrowser');
+
+const $id = id => document.getElementById(id);
+
+function setStatus(ok, txt) {
+  $id('statusDot').className = 'status-dot' + (ok ? ' connected' : '');
+  $id('statusText').textContent = txt;
+}
+
+function toast(msg, ms = 2000) {
+  const el = $id('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), ms);
+}
+
+function connect() {
+  if (ws) { ws.close(); ws = null; }
+  const ip = $id('tvIp').value.trim();
+  if (!ip) { toast('⚠️ Ingresa la IP del TV'); return; }
+  setStatus(false, 'Conectando...');
+  toast('🔌 Conectando...');
+  try { ws = new WebSocket(`ws://${ip}:8001/api/v2/channels/samsung.remote.control`); }
+  catch(e) { setStatus(false,'Error'); toast('❌ No se pudo conectar'); return; }
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ method:'ms.channel.connect', params:{ name:APP_NAME, appId:'com.samsung.webremote', deviceName:DEV_NAME }}));
+    setStatus(true, `Conectado · ${ip}`);
+    toast('✅ TV conectado');
+  };
+  ws.onmessage = e => {
+    try {
+      const d = JSON.parse(e.data);
+      if (d.event === 'ms.channel.connect')      toast('📺 TV listo para comandos');
+      if (d.event === 'ms.channel.unauthorized') toast('⚠️ Acepta el permiso en el TV', 5000);
+    } catch(e){}
+  };
+  ws.onerror  = () => { setStatus(false,'Error'); toast('❌ Error de conexión'); };
+  ws.onclose  = () => { setStatus(false,'Desconectado'); ws = null; };
+}
+
+function reconnect() { if(ws){ws.close();ws=null;} toast('🔄 Reconectando...'); setTimeout(connect,400); }
+
+function sendKey(k) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) { toast('⚠️ No conectado al TV'); return; }
+  ws.send(JSON.stringify({ method:'ms.remote.control', params:{ Cmd:'Click', DataOfCmd:k, Option:'false', TypeOfRemote:'SendRemoteKey' }}));
+  toast(`📤 ${k}`, 900);
+}
+
+function openKeyboard() { $id('kbModal').classList.add('open'); setTimeout(()=>$id('textInput').focus(),100); }
+function closeKb()      { $id('kbModal').classList.remove('open'); $id('textInput').value=''; }
+function sendText() {
+  const t = $id('textInput').value.trim(); if(!t) return;
+  if (!ws||ws.readyState!==WebSocket.OPEN) { toast('⚠️ No conectado'); return; }
+  ws.send(JSON.stringify({ method:'ms.remote.control', params:{ Cmd:'Click', DataOfCmd:'KEY_ENTER', TypeOfRemote:'SendInputString', InputString:t }}));
+  toast(`⌨️ "${t}" enviado`, 2000); closeKb();
+}
+
+$id('textInput').addEventListener('keydown', e => { if(e.key==='Enter') sendText(); if(e.key==='Escape') closeKb(); });
+$id('kbModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeKb(); });
+window.addEventListener('load', () => setTimeout(connect, 700));
+
+
+// ══════════════════════════════════════════
+//  DISCOVERY PANEL — UI
+// ══════════════════════════════════════════
+function toggleDisc() {
+  const b = $id('discBody'), a = $id('discArrow');
+  b.classList.toggle('open'); a.classList.toggle('open', b.classList.contains('open'));
+}
+function switchTab(n) {
+  [1,2].forEach(i => {
+    $id(`tab${i}`).classList.toggle('active', i===n);
+    $id(`tc${i}`).classList.toggle('active', i===n);
+  });
+}
+
+
+// ══════════════════════════════════════════
+//  TAB 1 — Network Scanner
+// ══════════════════════════════════════════
+function getLocalIP() {
+  return new Promise(resolve => {
+    try {
+      const pc = new RTCPeerConnection({ iceServers:[] });
+      pc.createDataChannel('');
+      pc.createOffer().then(o => pc.setLocalDescription(o));
+      pc.onicecandidate = ice => {
+        if (!ice?.candidate?.candidate) return;
+        const m = /(\d{1,3}(?:\.\d{1,3}){3})/.exec(ice.candidate.candidate);
+        if (m && !m[1].startsWith('127') && !m[1].startsWith('169')) {
+          pc.close(); resolve(m[1]);
+        }
+      };
+      setTimeout(() => resolve(null), 3500);
+    } catch(e) { resolve(null); }
+  });
+}
+
+function probeWS(ip, ms = 900) {
+  return new Promise(resolve => {
+    let done = false, sock;
+    const fin = v => { if(done) return; done=true; try{sock&&sock.close();}catch(e){} resolve(v); };
+    const t = setTimeout(() => fin(false), ms);
+    try {
+      sock = new WebSocket(`ws://${ip}:8001/api/v2/channels/samsung.remote.control`);
+      sock.onopen  = () => { clearTimeout(t); fin(true); };
+      sock.onerror = () => { clearTimeout(t); fin(false); };
+    } catch(e) { clearTimeout(t); fin(false); }
+  });
+}
+
+async function startScan() {
+  const btn    = $id('scanBtn');
+  const resDiv = $id('scanResults');
+  const prog   = $id('scanProgress');
+  const fill   = $id('scanFill');
+  const lbl    = $id('scanLabel');
+
+  resDiv.innerHTML = '';
+  prog.classList.add('visible');
+  btn.disabled = true;
+  btn.textContent = '⏳ Escaneando...';
+
+  lbl.textContent = 'Detectando IP local vía WebRTC...';
+  fill.style.width = '2%';
+
+  const localIP = await getLocalIP();
+  let subnet;
+
+  if (localIP) {
+    subnet = localIP.split('.').slice(0,3).join('.');
+    lbl.textContent = `IP local: ${localIP} → Escaneando ${subnet}.1 – 254`;
+  } else {
+    const tvIP = $id('tvIp').value.trim();
+    if (tvIP) {
+      subnet = tvIP.split('.').slice(0,3).join('.');
+      lbl.textContent = `WebRTC bloqueado. Usando subred del TV: ${subnet}.x`;
+    } else {
+      lbl.textContent = '❌ No se pudo detectar la subred. Ingresa la IP del TV primero.';
+      btn.disabled = false; btn.textContent = '🔁 Reintentar'; return;
+    }
+  }
+
+  const TOTAL = 254, BATCH = 25;
+  let scanned = 0, found = 0;
+
+  for (let start = 1; start <= TOTAL; start += BATCH) {
+    const end = Math.min(start + BATCH - 1, TOTAL);
+    const batch = [];
+    for (let i = start; i <= end; i++) {
+      const ip = `${subnet}.${i}`;
+      batch.push(probeWS(ip).then(ok => ({ ip, ok })));
+    }
+    const chunk = await Promise.all(batch);
+    scanned += chunk.length;
+    fill.style.width = Math.round((scanned/TOTAL)*100) + '%';
+    lbl.textContent = `Escaneando ${subnet}.x … (${scanned}/${TOTAL}) — TVs encontrados: ${found}`;
+
+    for (const { ip, ok } of chunk) {
+      if (!ok) continue;
+      found++;
+      const d = document.createElement('div');
+      d.className = 'result-item';
+      d.innerHTML = `
+        <div>
+          <div class="ip-found">${ip}</div>
+          <div class="lbl-ok">✅ Samsung TV detectado (puerto 8001)</div>
+        </div>
+        <button class="use-btn" onclick="useIP('${ip}')">Usar</button>`;
+      resDiv.appendChild(d);
+    }
+  }
+
+  fill.style.width = '100%';
+  lbl.textContent = found
+    ? `✅ Listo — ${found} Samsung TV(s) encontrado(s) en ${subnet}.0/24`
+    : `⚠️ Escaneo completo — ningún dispositivo respondió en puerto 8001`;
+  btn.disabled = false;
+  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Escanear de nuevo';
+}
+
+function useIP(ip) {
+  $id('tvIp').value = ip;
+  toast(`✅ IP ${ip} seleccionada`);
+  connect();
+}
+
+
+// ══════════════════════════════════════════
+//  TAB 2 — MAC Vendor Lookup
+// ══════════════════════════════════════════
+function parseMacs(text) {
+  // Extrae pares {ip, mac} soportando 00-11-22-33-44-55 y 00:11:22:33:44:55
+  const re = /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})[^\n\r]{0,30}?([0-9a-fA-F]{2}[:\-][0-9a-fA-F]{2}[:\-][0-9a-fA-F]{2}[:\-][0-9a-fA-F]{2}[:\-][0-9a-fA-F]{2}[:\-][0-9a-fA-F]{2})/g;
+  const out = [], seen = new Set();
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const ip  = m[1];
+    const mac = m[2].replace(/-/g,':').toUpperCase();
+    if (!seen.has(mac) && !ip.endsWith('.255')) { seen.add(mac); out.push({ ip, mac }); }
+  }
+  return out;
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function lookupMacs() {
+  const arpText = $id('arpOut').value.trim();
+  const res     = $id('macResults');
+  const btn     = $id('macBtn');
+  res.innerHTML = '';
+
+  if (!arpText) { toast('⚠️ Pega el output de arp -a primero'); return; }
+
+  const entries = parseMacs(arpText);
+  if (!entries.length) {
+    res.innerHTML = '<div style="font-size:0.77rem;color:var(--red);padding:6px;">❌ No se encontraron MACs válidas en el texto pegado.</div>';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = `⏳ Consultando ${entries.length} MAC(s)…`;
+
+  // Render filas en estado "cargando"
+  for (const { ip, mac } of entries) {
+    const key = mac.replace(/:/g,'');
+    const d = document.createElement('div');
+    d.className = 'mac-row';
+    d.innerHTML = `
+      <div class="mr-ip">🌐 ${ip}</div>
+      <div class="mr-mac">${mac}</div>
+      <div class="mr-vendor loading" id="v-${key}">Consultando macvendors.com…</div>
+      <button class="use-ip-btn" onclick="useIP('${ip}')">Usar esta IP →</button>`;
+    res.appendChild(d);
+  }
+
+  // Consultar macvendors.com (1 req/seg, free tier)
+  for (let i = 0; i < entries.length; i++) {
+    const { mac } = entries[i];
+    const key = mac.replace(/:/g,'');
+    const el  = $id(`v-${key}`);
+    try {
+      const r = await fetch(`https://api.macvendors.com/${encodeURIComponent(mac)}`);
+      if (r.ok) {
+        const vendor = (await r.text()).trim();
+        const isSamsung = vendor.toLowerCase().includes('samsung');
+        el.className = 'mr-vendor' + (isSamsung ? ' samsung' : '');
+        el.textContent = (isSamsung ? '🇰🇷 ' : '🏭 ') + vendor;
+      } else if (r.status === 404) {
+        el.className = 'mr-vendor error';
+        el.textContent = '❓ Fabricante desconocido';
+      } else if (r.status === 429) {
+        el.className = 'mr-vendor error';
+        el.textContent = '⏱ Rate limit — reintenta en un momento';
+      } else {
+        el.className = 'mr-vendor error';
+        el.textContent = `⚠️ Error HTTP ${r.status}`;
+      }
+    } catch(e) {
+      el.className = 'mr-vendor error';
+      el.textContent = '❌ Sin acceso a macvendors.com (CORS / sin internet)';
+    }
+    if (i < entries.length - 1) await sleep(1150); // respeta rate limit
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '🔁 Consultar de nuevo';
+  toast('✅ Consulta de fabricantes completada');
+}
+</script>
+</body>
+</html>
