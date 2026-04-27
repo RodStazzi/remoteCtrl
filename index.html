@@ -489,7 +489,7 @@
     <!-- TAB 1: Scan -->
     <div class="tab-content active" id="tc1">
       <div class="scan-info">
-        Detecta tu IP local vía <strong>WebRTC</strong> y escanea todo el rango <strong>/24</strong> buscando el puerto <strong>8001</strong> de Samsung. Equivale a ejecutar <code>arp -a</code> + <code>nmap -p 8001</code> desde el browser.
+        Detecta tu IP local vía <strong>WebRTC</strong> y escanea todo el rango <strong>/24</strong> buscando el puerto <strong>8002</strong> de Samsung. Equivale a ejecutar <code>arp -a</code> + <code>nmap -p 8002</code> desde el browser.
       </div>
       <button class="action-btn" id="scanBtn" onclick="startScan()">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
@@ -941,7 +941,7 @@ function probeWS(ip, ms = 900) {
     const fin = v => { if(done) return; done=true; try{sock&&sock.close();}catch(e){} resolve(v); };
     const t = setTimeout(() => fin(false), ms);
     try {
-      sock = new WebSocket(`ws://${ip}:8001/api/v2/channels/samsung.remote.control`);
+      sock = new WebSocket(`ws://${ip}:8002/api/v2/channels/samsung.remote.control`);
       sock.onopen  = () => { opened = true; clearTimeout(t); fin(true); };
       // onerror/onclose después de onopen = broken close frame = sigue siendo Samsung
       sock.onerror = () => { clearTimeout(t); fin(opened); };
@@ -1010,7 +1010,7 @@ async function startScan() {
       d.innerHTML = `
         <div>
           <div class="ip-found">${ip}</div>
-          <div class="lbl-ok">✅ Samsung TV detectado (puerto 8001)</div>
+          <div class="lbl-ok">✅ Samsung TV detectado (puerto 8002)</div>
         </div>
         <button class="use-btn" onclick="useIP('${ip}')">Usar</button>`;
       resDiv.appendChild(d);
@@ -1020,7 +1020,7 @@ async function startScan() {
   fill.style.width = '100%';
   lbl.textContent = found
     ? `✅ Listo — ${found} Samsung TV(s) encontrado(s) en ${subnet}.0/24`
-    : `⚠️ Escaneo completo — ningún dispositivo respondió en puerto 8001`;
+    : `⚠️ Escaneo completo — ningún dispositivo respondió en puerto 8002`;
   btn.disabled = false;
   btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Escanear de nuevo';
 }
