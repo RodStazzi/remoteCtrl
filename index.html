@@ -448,9 +448,26 @@
   <span id="statusText">Desconectado</span>
 </div>
 
+<div id="pairingBanner" style="
+  display:none; width:100%; max-width:380px;
+  margin-bottom:10px; padding:10px 14px;
+  border-radius:12px; border:1px solid var(--border);
+  font-size:0.78rem; line-height:1.5;
+  background:var(--card); color:var(--text);
+"></div>
+
 <div class="ip-bar">
-  <input type="text" id="tvIp" value="" placeholder="IP del TV">
+  <input type="text" id="tvIp" value="" placeholder="IP del TV (ej: 192.168.100.20)">
   <button class="ip-btn" onclick="connect()">Conectar</button>
+</div>
+<div class="ip-bar" style="margin-bottom:4px;">
+  <button class="ip-btn" style="flex:1;background:var(--card);border:1px solid var(--border);color:var(--text-muted);font-size:0.75rem;" onclick="autoConnect()">
+    🔍 Auto-detectar protocolo
+  </button>
+</div>
+<div class="ip-bar" style="margin-bottom:4px;">
+  <input type="text" id="manualToken" placeholder="Token manual (opcional)" style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 14px;color:var(--text);font-family:DM Sans,sans-serif;font-size:0.82rem;outline:none;">
+  <button class="ip-btn" style="background:var(--card);border:1px solid var(--border);color:var(--text-muted);font-size:0.75rem;white-space:nowrap;" onclick="setManualToken()">Usar token</button>
 </div>
 
 <!-- ══════════ DISCOVERY PANEL ══════════ -->
@@ -639,9 +656,24 @@
 // ══════════════════════════════════════════
 //  CORE — WebSocket remote
 // ══════════════════════════════════════════
-let ws = null;
-const APP_NAME = btoa('SamsungWebRemote');
-const DEV_NAME = btoa('WebBrowser');
+let ws         = null;
+let savedToken = '';   // token que el TV devuelve tras aprobar el emparejamiento
+
+// ★ CLAVE: el ?name= en la URL es lo que dispara el popup en el TV
+// Nombres a probar — cambia el indice (0,1,2...) para probar cada uno
+const APP_NAMES = [
+  'SamsungWebRemote',       // 0 - nuestro nombre actual
+  'SmartDevice',            // 1 - nombre generico del TV
+  'Smart Device',           // 2 - con espacio
+  'Remote Control',         // 3 - nombre comun
+  'Samsung Remote',         // 4
+  'iphone',                 // 5 - algunos TV registran asi iOS
+  'SmartView',              // 6 - app oficial Samsung
+  'TV SideView',            // 7
+];
+const APP_NAME_IDX = 0;  // <-- cambia este numero para probar otro nombre
+const APP_NAME_B64 = btoa(APP_NAMES[APP_NAME_IDX]);
+console.log('[APP] Usando nombre:', APP_NAMES[APP_NAME_IDX], '| base64:', APP_NAME_B64);
 
 const $id = id => document.getElementById(id);
 
@@ -658,31 +690,187 @@ function toast(msg, ms = 2000) {
   el._t = setTimeout(() => el.classList.remove('show'), ms);
 }
 
-function connect() {
-  if (ws) { ws.close(); ws = null; }
-  const ip = $id('tvIp').value.trim();
-  if (!ip) { toast('⚠️ Ingresa la IP del TV'); return; }
-  setStatus(false, 'Conectando...');
-  toast('🔌 Conectando...');
-  try { ws = new WebSocket(`ws://${ip}:8001/api/v2/channels/samsung.remote.control`); }
-  catch(e) { setStatus(false,'Error'); toast('❌ No se pudo conectar'); return; }
-  ws.onopen = () => {
-    ws.send(JSON.stringify({ method:'ms.channel.connect', params:{ name:APP_NAME, appId:'com.samsung.webremote', deviceName:DEV_NAME }}));
-    setStatus(true, `Conectado · ${ip}`);
-    toast('✅ TV conectado');
-  };
-  ws.onmessage = e => {
-    try {
-      const d = JSON.parse(e.data);
-      if (d.event === 'ms.channel.connect')      toast('📺 TV listo para comandos');
-      if (d.event === 'ms.channel.unauthorized') toast('⚠️ Acepta el permiso en el TV', 5000);
-    } catch(e){}
-  };
-  ws.onerror  = () => { setStatus(false,'Error'); toast('❌ Error de conexión'); };
-  ws.onclose  = () => { setStatus(false,'Desconectado'); ws = null; };
+function setBanner(msg, type = '') {
+  const b = $id('pairingBanner');
+  if (!msg) { b.style.display = 'none'; return; }
+  b.textContent = msg;
+  b.style.display     = 'block';
+  b.style.background  = type==='warn' ? '#2a1a05' : type==='ok' ? '#0a1f0a' : 'var(--card)';
+  b.style.borderColor = type==='warn' ? '#c17f00' : type==='ok' ? 'var(--green)' : 'var(--border)';
+  b.style.color       = type==='warn' ? '#f5a623' : type==='ok' ? 'var(--green)' : 'var(--text)';
 }
 
-function reconnect() { if(ws){ws.close();ws=null;} toast('🔄 Reconectando...'); setTimeout(connect,400); }
+// Protocolos a probar en orden — 8002 WSS primero (confirmado por CONTROLLA)
+const PROTOCOLS = [
+  { port: 8002, path: '/api/v2/channels/samsung.remote.control', legacy: false, secure: true,  label: 'WSS puerto 8002 (CONTROLLA)' },
+  { port: 8001, path: '/api/v2/channels/samsung.remote.control', legacy: false, secure: false, label: 'WS puerto 8001' },
+  { port: 8001, path: '/api/v2/', legacy: false, secure: false, label: 'WS API v2 raiz' },
+];
+let activeProtocol = PROTOCOLS[0];
+
+function buildWsUrl(ip, proto) {
+  if (proto.legacy) return null;
+  const scheme = proto.secure ? 'wss' : 'ws';
+  let url = `${scheme}://${ip}:${proto.port}${proto.path}?name=${APP_NAME_B64}`;
+  if (savedToken) url += `&token=${savedToken}`;
+  return url;
+}
+
+// Prueba un protocolo; resuelve true si WS abre, false si falla/timeout
+function tryProtocol(ip, proto, timeoutMs = 3000) {
+  if (proto.legacy) return Promise.resolve(false); // skip TCP puro por ahora
+  return new Promise(resolve => {
+    let done = false, sock;
+    const fin = v => { if (done) return; done = true; try { sock && sock.readyState < 2 && sock.close(); } catch(e){} resolve(v); };
+    const t = setTimeout(() => fin(false), timeoutMs);
+    try {
+      sock = new WebSocket(buildWsUrl(ip, proto));
+      sock.onopen  = () => { clearTimeout(t); fin(true); };
+      sock.onerror = () => { clearTimeout(t); fin(false); };
+      sock.onclose = (e) => { clearTimeout(t); fin(sock.readyState !== WebSocket.CONNECTING); };
+    } catch(e) { clearTimeout(t); fin(false); }
+  });
+}
+
+async function autoDetectProtocol(ip) {
+  setBanner('🔍 Detectando protocolo compatible con tu TV...', '');
+  for (const proto of PROTOCOLS) {
+    if (proto.legacy) continue;
+    setBanner(`🔍 Probando ${proto.label}...`, '');
+    const ok = await tryProtocol(ip, proto, 2500);
+    if (ok) {
+      activeProtocol = proto;
+      setBanner(`✅ Protocolo detectado: ${proto.label}`, 'ok');
+      return true;
+    }
+  }
+  setBanner('❌ Ningun protocolo respondio. Verifica IP y que el TV este encendido.', '');
+  return false;
+}
+
+function connect() {
+  if (ws) { try { ws.close(); } catch(e){} ws = null; }
+  const ip = $id('tvIp').value.trim();
+  if (!ip) { toast('⚠️ Ingresa la IP del TV'); return; }
+
+  setStatus(false, 'Conectando...');
+  setBanner('');
+  let connectedOk = false;
+
+  const url = buildWsUrl(ip, activeProtocol);
+  try { ws = new WebSocket(url); }
+  catch(e) { setStatus(false,'Error'); toast('❌ URL invalida'); return; }
+
+  const connTimeout = setTimeout(() => {
+    if (!connectedOk) {
+      try { ws && ws.close(); } catch(e){}
+      setStatus(false, '❌ Sin respuesta');
+      setBanner('❌ El TV no respondio. Verifica que este encendido y la IP sea correcta.');
+    }
+  }, 6000);
+
+  ws.onopen = () => {
+    clearTimeout(connTimeout);
+    connectedOk = true;
+    try {
+      ws.send(JSON.stringify({ method: 'ms.channel.connect', params: { name: APP_NAME_B64 } }));
+    } catch(e) {}
+    setBanner('📺 Conexion abierta — buscando respuesta del TV...', 'warn');
+    setStatus(false, 'Esperando TV...');
+  };
+
+  let gotUnauthorized = false;
+
+  ws.onmessage = e => {
+    try {
+      const raw = e.data;
+      console.log('[Samsung TV]', raw);
+      const d = JSON.parse(raw);
+
+      if (d.data?.token) {
+        savedToken = d.data.token;
+        gotUnauthorized = false;
+        setBanner('✅ TV autorizado — listo para usar!', 'ok');
+        setStatus(true, `Conectado · ${ip}`);
+        toast('✅ TV conectado y autorizado');
+      }
+
+      if (d.event === 'ms.channel.connect') {
+        gotUnauthorized = false;
+        setBanner('✅ TV listo para recibir comandos', 'ok');
+        setStatus(true, `Conectado · ${ip}`);
+        toast('✅ TV conectado');
+      }
+
+      // ★ CLAVE: el TV muestra el popup Y envia esto simultaneamente
+      if (d.event === 'ms.channel.unauthorized') {
+        gotUnauthorized = true;
+        // Mostrar alerta grande — el popup ya esta en el TV ahora mismo
+        setBanner(
+          '🔴 MIRA EL TV AHORA — hay una pequeña notificacion en la pantalla pidiendo permiso. ' +
+          'Aceptala con el control remoto fisico. ' +
+          'La app reintentara en 6 segundos automaticamente.',
+          'warn'
+        );
+        setStatus(false, 'Esperando tu aprobacion en el TV...');
+        // Esperar a que el usuario acepte en el TV y reconectar
+        setTimeout(() => {
+          setBanner('🔄 Reintentando tras tu aprobacion...', 'warn');
+          connect();
+        }, 6000);
+      }
+
+      if (d.event === 'ms.channel.disconnect') {
+        setStatus(false, 'Rechazado');
+        setBanner('❌ TV denego la conexion permanentemente. En el TV: Ajustes → General → Administrador dispositivos externos → borra el dispositivo bloqueado.', '');
+      }
+    } catch(err){}
+  };
+
+  ws.onerror = () => {};
+
+  ws.onclose = (evt) => {
+    clearTimeout(connTimeout);
+    ws = null;
+    console.log('[Samsung TV] close code:', evt.code, 'clean:', evt.wasClean);
+    if (gotUnauthorized) {
+      // Ya manejado en onmessage — no hacer nada extra
+      return;
+    }
+    if (!connectedOk) {
+      setStatus(false, '❌ Sin respuesta del TV');
+      setBanner('❌ El TV no respondio. Verifica que este encendido y la IP sea correcta.');
+    } else if (!savedToken) {
+      setStatus(false, 'Desconectado');
+      setBanner('Se perdio la conexion. Pulsa Conectar para reintentar.', '');
+    } else {
+      setStatus(false, 'Desconectado');
+      setBanner('');
+    }
+  };
+}
+
+async function autoConnect() {
+  const ip = $id('tvIp').value.trim();
+  if (!ip) { toast('⚠️ Ingresa la IP del TV'); return; }
+  const found = await autoDetectProtocol(ip);
+  if (found) connect();
+}
+
+function setManualToken() {
+  const t = document.getElementById('manualToken').value.trim();
+  if (!t) { toast('Ingresa un token primero'); return; }
+  savedToken = t;
+  setBanner('Token guardado: ' + t + ' — pulsa Conectar', 'ok');
+  toast('Token guardado, conectando...');
+  setTimeout(connect, 500);
+}
+
+function reconnect() {
+  if(ws){try{ws.close();}catch(e){} ws=null;}
+  toast('🔄 Reconectando...');
+  setTimeout(connect, 400);
+}
 
 function sendKey(k) {
   if (!ws || ws.readyState !== WebSocket.OPEN) { toast('⚠️ No conectado al TV'); return; }
@@ -701,7 +889,9 @@ function sendText() {
 
 $id('textInput').addEventListener('keydown', e => { if(e.key==='Enter') sendText(); if(e.key==='Escape') closeKb(); });
 $id('kbModal').addEventListener('click', e => { if(e.target===e.currentTarget) closeKb(); });
-window.addEventListener('load', () => setTimeout(connect, 700));
+window.addEventListener('load', () => {
+  if ($id('tvIp').value.trim()) setTimeout(connect, 700);
+});
 
 
 // ══════════════════════════════════════════
@@ -723,6 +913,9 @@ function switchTab(n) {
 //  TAB 1 — Network Scanner
 // ══════════════════════════════════════════
 function getLocalIP() {
+  // WebRTC está bloqueado en file:// (Chrome security origin).
+  // Solo lo intentamos si corremos desde http(s)://
+  if (location.protocol === 'file:') return Promise.resolve(null);
   return new Promise(resolve => {
     try {
       const pc = new RTCPeerConnection({ iceServers:[] });
@@ -740,15 +933,19 @@ function getLocalIP() {
   });
 }
 
+// En el scanner, también contamos como "encontrado" si el WS
+// abre Y luego cierra con broken frame (= Samsung TV en modo pairing)
 function probeWS(ip, ms = 900) {
   return new Promise(resolve => {
-    let done = false, sock;
+    let done = false, opened = false, sock;
     const fin = v => { if(done) return; done=true; try{sock&&sock.close();}catch(e){} resolve(v); };
     const t = setTimeout(() => fin(false), ms);
     try {
       sock = new WebSocket(`ws://${ip}:8001/api/v2/channels/samsung.remote.control`);
-      sock.onopen  = () => { clearTimeout(t); fin(true); };
-      sock.onerror = () => { clearTimeout(t); fin(false); };
+      sock.onopen  = () => { opened = true; clearTimeout(t); fin(true); };
+      // onerror/onclose después de onopen = broken close frame = sigue siendo Samsung
+      sock.onerror = () => { clearTimeout(t); fin(opened); };
+      sock.onclose = () => { clearTimeout(t); fin(opened); };
     } catch(e) { clearTimeout(t); fin(false); }
   });
 }
@@ -765,25 +962,30 @@ async function startScan() {
   btn.disabled = true;
   btn.textContent = '⏳ Escaneando...';
 
-  lbl.textContent = 'Detectando IP local vía WebRTC...';
+  lbl.textContent = 'Detectando IP local...';
   fill.style.width = '2%';
 
+  // file:// bloquea WebRTC → inferimos subred desde la IP del TV
   const localIP = await getLocalIP();
-  let subnet;
+  let subnet, ipSource;
 
   if (localIP) {
-    subnet = localIP.split('.').slice(0,3).join('.');
-    lbl.textContent = `IP local: ${localIP} → Escaneando ${subnet}.1 – 254`;
+    subnet    = localIP.split('.').slice(0,3).join('.');
+    ipSource  = `IP local detectada: ${localIP}`;
   } else {
     const tvIP = $id('tvIp').value.trim();
-    if (tvIP) {
-      subnet = tvIP.split('.').slice(0,3).join('.');
-      lbl.textContent = `WebRTC bloqueado. Usando subred del TV: ${subnet}.x`;
+    if (tvIP && tvIP.split('.').length === 4) {
+      subnet   = tvIP.split('.').slice(0,3).join('.');
+      ipSource = location.protocol === 'file:'
+        ? `WebRTC bloqueado en file:// → usando subred del TV: ${subnet}.x`
+        : `No se detectó IP local → usando subred del TV: ${subnet}.x`;
     } else {
-      lbl.textContent = '❌ No se pudo detectar la subred. Ingresa la IP del TV primero.';
+      lbl.textContent = '❌ Ingresa primero la IP del TV para inferir la subred';
       btn.disabled = false; btn.textContent = '🔁 Reintentar'; return;
     }
   }
+
+  lbl.textContent = `${ipSource} → Escaneando ${subnet}.1–254`;
 
   const TOTAL = 254, BATCH = 25;
   let scanned = 0, found = 0;
