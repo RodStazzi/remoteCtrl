@@ -457,7 +457,7 @@
 "></div>
 
 <div class="ip-bar">
-  <input type="text" id="tvIp" value="" placeholder="IP del TV (ej: 192.168.100.20)">
+  <input type="text" id="tvIp" value="" placeholder="IP del TV (ej: 194.163.101.20)">
   <button class="ip-btn" onclick="connect()">Conectar</button>
 </div>
 <div class="ip-bar" style="margin-bottom:4px;">
@@ -511,7 +511,7 @@
         Pega la salida completa de <code>arp -a</code>. Se extraen todas las MACs y se consulta <strong>macvendors.com</strong> para identificar el fabricante de cada dispositivo (1 req/seg, free tier).
       </div>
       <textarea class="mac-textarea" id="arpOut"
-        placeholder="Pega aquí la salida de arp -a&#10;&#10;  192.168.100.1     c8-3a-35-6a-b5-c4   dynamic&#10;  192.168.100.20    68-fc-ca-d3-9b-ce   dynamic&#10;  192.168.100.35    a4-c3-f0-12-ab-cd   dynamic"></textarea>
+        placeholder="Pega aquí la salida de arp -a&#10;&#10;  194.162.103.1     c8-3a-35-6a-b5-c4   dynamic&#10;  194.162.103.20    68-fc-ca-d3-9b-ce   dynamic&#10;  194.162.103.35    a4-c3-f0-12-ab-cd   dynamic"></textarea>
       <button class="action-btn" id="macBtn" onclick="lookupMacs()">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
         Consultar fabricantes en macvendors.com
@@ -865,7 +865,7 @@ async function autoConnect() {
 }
 
 function acceptCert() {
-  const ip = $id('tvIp').value.trim() || '192.168.100.20';
+  const ip = $id('tvIp').value.trim() || '194.162.103.20';
   window.open(`https://${ip}:8002`, '_blank');
   setBanner('🔒 Acepta el certificado en la nueva pestaña y vuelve aqui. Luego pulsa Conectar.', 'warn');
 }
